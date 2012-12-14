@@ -26,11 +26,13 @@ module.exports = function(grunt) {
 		var datapngcss = config.datapngcss || "icons.data.png.css";
 		var urlpngcss = config.urlpngcss || "icons.fallback.css";
 
-		//filename for generated output preview HTML file
-		var previewhtml = config.previewhtml || "preview.html";
+		// filename for generated output preview HTML file
+		var previewhtml = config.previewhtml;
+		if( previewhtml == null ) previewhtml = "preview.html";
 
 		// filename for generated loader HTML snippet file
-		var loadersnippit = config.loadersnippet || "grunticon.loader.txt";
+		var loadersnippit = config.loadersnippit;
+		if( loadersnippit == null ) loadersnippit = "grunticon.loader.txt";
 
 		// css references base path for the loader
 		var cssbasepath = config.cssbasepath || "/";
@@ -73,14 +75,18 @@ module.exports = function(grunt) {
 			grunt.log.writeln( "Generated icon stylesheets." );
 
 			// write loader file
-			var src = "<!-- Unicode CSS Loader: place this in the head of your page -->\n";
-			src += grunt.helper( 'icons_loader', cssbasepath, datasvgcss, datapngcss, urlpngcss, true );
-			grunt.file.write( path.join( dest, loadersnippit ), src );
-			grunt.log.writeln( "Generated loader snippit." );
+			if( loadersnippit ){
+				var src = "<!-- Unicode CSS Loader: place this in the head of your page -->\n";
+				src += grunt.helper( 'icons_loader', cssbasepath, datasvgcss, datapngcss, urlpngcss, true );
+				grunt.file.write( path.join( dest, loadersnippit ), src );
+				grunt.log.writeln( "Generated loader snippit." );
+			}
 
 			// write the preview file
-			grunt.helper( 'icons_preview', cssprefix, pngs, datasvgcss, datapngcss, urlpngcss, path.join( dest, previewhtml ) );
-			grunt.log.writeln( "Generated HTML preview." );
+			if( previewhtml ){
+				grunt.helper( 'icons_preview', cssprefix, pngs, datasvgcss, datapngcss, urlpngcss, path.join( dest, previewhtml ) );
+				grunt.log.writeln( "Generated HTML preview." );
+			}
 
 			done();
 		});
