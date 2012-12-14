@@ -193,7 +193,8 @@ module.exports = function(grunt) {
 	// Write a stylesheet containing PNG fallback URLs.
 	grunt.registerHelper( 'iconsheet_png_url', function(cssprefix, pngs, pngfolder, dest) {
 		var rules = grunt.utils._.map( pngs, function( obj, name ){
-			return "." + cssprefix + name + " { background-image: url(" + pngfolder + name + ".png); background-repeat: no-repeat; }";
+			var pngpath = path.join( pngfolder, name + ".png" );
+			return "." + cssprefix + name + " { background-image: url(" + pngpath + "); background-repeat: no-repeat; }";
 		});
 		grunt.file.write( dest, rules.join( "\n\n" ) );
 	});
