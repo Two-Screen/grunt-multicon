@@ -29,7 +29,8 @@
 		"test": "grunt test"
 	},
 	"dependencies": {
-		"grunt": "~0.3.9"
+		"grunt": "~0.3.9",
+		"noface": "0.1"
 	},
 	"keywords": [
 		"gruntplugin"
