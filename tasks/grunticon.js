@@ -9,10 +9,6 @@
 var path = require('path');
 var noface = require('noface');
 
-var previewTmpl = path.join(__dirname, "grunticon/static/preview.html");
-var asyncCSS = path.join(__dirname, "grunticon/static/grunticon.loader.js");
-var asyncCSSBanner = path.join(__dirname, "grunticon/static/grunticon.loader.banner.js");
-
 module.exports = function(grunt) {
 
     grunt.registerMultiTask('grunticon', 'A mystical CSS icon solution.', function() {
@@ -30,17 +26,6 @@ module.exports = function(grunt) {
         var datasvgcss = config.datasvgcss || "icons.data.svg.css";
         var datapngcss = config.datapngcss || "icons.data.png.css";
         var urlpngcss = config.urlpngcss || "icons.fallback.css";
-
-        // filename for generated output preview HTML file
-        var previewhtml = config.previewhtml;
-        if (previewhtml == null) previewhtml = "preview.html";
-
-        // filename for generated loader HTML snippet file
-        var loadersnippit = config.loadersnippit;
-        if (loadersnippit == null) loadersnippit = "grunticon.loader.txt";
-
-        // css references base path for the loader
-        var cssbasepath = config.cssbasepath || "/";
 
         // folder name (within the output folder) for generated png files
         var pngfolder = config.pngfolder || "png/";
@@ -98,20 +83,6 @@ module.exports = function(grunt) {
             grunt.helper('iconsheet_png_data', images, path.join(dest, datapngcss));
             grunt.helper('iconsheet_png_url', images, path.join(dest, urlpngcss));
             grunt.log.writeln("Generated icon stylesheets.");
-
-            // write loader file
-            if (loadersnippit) {
-                var src = "<!-- Unicode CSS Loader: place this in the head of your page -->\n";
-                src += grunt.helper('icons_loader', cssbasepath, datasvgcss, datapngcss, urlpngcss, true);
-                grunt.file.write(path.join(dest, loadersnippit), src);
-                grunt.log.writeln("Generated loader snippit.");
-            }
-
-            // write the preview file
-            if (previewhtml) {
-                grunt.helper('icons_preview', images, datasvgcss, datapngcss, urlpngcss, path.join(dest, previewhtml));
-                grunt.log.writeln("Generated HTML preview.");
-            }
 
             done();
         });
@@ -227,46 +198,6 @@ module.exports = function(grunt) {
             return "." + image.className + " { background-image: url(" + image.relPath + "); background-repeat: no-repeat; }";
         });
         grunt.file.write(dest, rules.join("\n\n"));
-    });
-
-    // Generate the loader
-    grunt.registerHelper('icons_loader', function(base, datasvgcss, datapngcss, urlpngcss, minify) {
-        // generate the javascript
-        var asyncsrc = grunt.file.read(asyncCSS);
-        asyncsrc += "\ngrunticon(" + JSON.stringify([
-            path.join(base + datasvgcss),
-            path.join(base + datapngcss),
-            path.join(base + urlpngcss)
-        ]) + ");";
-
-        // generate html
-        src  = "<script>\n";
-        src += grunt.file.read(asyncCSSBanner) + "\n";
-        src += minify ? grunt.helper('uglify', asyncsrc) : asyncsrc;
-        src += "</script>\n";
-        src += '<noscript><link href="' + path.join(base, urlpngcss) + '" rel="stylesheet"></noscript>';
-
-        return src;
-    });
-
-    // Write the preview html file.
-    grunt.registerHelper('icons_preview', function(images, datasvgcss, datapngcss, urlpngcss, dest) {
-        // get the loader code
-        var loader = grunt.helper('icons_loader', '', datasvgcss, datapngcss, urlpngcss, false);
-
-        // generate the body
-        var body = grunt.utils._.map(images, function(image) {
-            return '<pre><code>.' + image.className + ':</code></pre>' +
-                   '<div class="' + image.className + '" style="width: '+ image.width +'; height: '+ image.height +'"></div>';
-        }).join("<hr/>\n\t");
-
-        // build the preview from the template
-        var html = grunt.file.read(previewTmpl)
-            .replace("<!-- LOADER -->", loader)
-            .replace("<!-- BODY -->", body);
-
-        // write the file
-        grunt.file.write(dest, html);
     });
 
 };
