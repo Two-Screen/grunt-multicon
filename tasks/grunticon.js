@@ -44,17 +44,21 @@ module.exports = function(grunt) {
         var cssprefix = config.cssprefix || "icon-";
 
         // collect svgs
-        var svgs = {};
+        var images = [];
         grunt.file.recurse(src, function(filePath) {
             if (/\.svg$/.test(filePath)) {
                 var name = path.basename(filePath, '.svg');
-                svgs[name] = grunt.file.read(filePath);
+                images.push({
+                    name: name,
+                    filePath: filePath,
+                    svg: grunt.file.read(filePath)
+                });
             }
         });
 
         // render svgs to pngs
         var done = this.async();
-        grunt.helper('render_svgs', svgs, function(err, pngs) {
+        grunt.helper('render_svgs', images, function(err) {
             if (err) {
                 grunt.log.error(err.message);
                 grunt.fail.warn("Failed to render SVGs. ");
@@ -62,16 +66,16 @@ module.exports = function(grunt) {
             }
 
             // write fallback pngs
-            grunt.util._.each(pngs, function(obj, key) {
-                var buf = new Buffer(obj.base64, "base64");
-                grunt.file.write(path.join(dest, pngfolder, key + '.png'), buf);
+            grunt.util._.each(images, function(image) {
+                var buf = new Buffer(image.pngBase64, "base64");
+                grunt.file.write(path.join(dest, pngfolder, image.name + '.png'), buf);
             });
-            grunt.log.writeln("Rendered " + grunt.util._.size(svgs) + " SVGs.");
+            grunt.log.writeln("Rendered " + images.length + " SVGs.");
 
             // write stylesheets
-            grunt.helper('iconsheet_svg_data', cssprefix, svgs, path.join(dest, datasvgcss));
-            grunt.helper('iconsheet_png_data', cssprefix, pngs, path.join(dest, datapngcss));
-            grunt.helper('iconsheet_png_url', cssprefix, pngs, pngfolder, path.join(dest, urlpngcss));
+            grunt.helper('iconsheet_svg_data', cssprefix, images, path.join(dest, datasvgcss));
+            grunt.helper('iconsheet_png_data', cssprefix, images, path.join(dest, datapngcss));
+            grunt.helper('iconsheet_png_url', cssprefix, images, pngfolder, path.join(dest, urlpngcss));
             grunt.log.writeln("Generated icon stylesheets.");
 
             // write loader file
@@ -84,7 +88,7 @@ module.exports = function(grunt) {
 
             // write the preview file
             if (previewhtml) {
-                grunt.helper('icons_preview', cssprefix, pngs, datasvgcss, datapngcss, urlpngcss, path.join(dest, previewhtml));
+                grunt.helper('icons_preview', cssprefix, images, datasvgcss, datapngcss, urlpngcss, path.join(dest, previewhtml));
                 grunt.log.writeln("Generated HTML preview.");
             }
 
@@ -93,9 +97,12 @@ module.exports = function(grunt) {
 
     });
 
-    // Render a bunch of SVGs to PNGs. Takes a object containing SVG data as
-    // values, and returns a similar map with render output as values.
-    grunt.registerHelper('render_svgs', function(map, callback) {
+    // Render a bunch of SVGs to PNGs.
+    //
+    // Takes an array of objects, each with a `svg` attribute containing
+    // string SVG data and a `filePath`. The attributes `pngBase64`, `width`
+    // and `height` will be set on each of the objects on success.
+    grunt.registerHelper('render_svgs', function(images, callback) {
 
         // spin up phantomjs to render pngs for us
         var ph = noface(function(channel) {
@@ -142,20 +149,23 @@ module.exports = function(grunt) {
 
         // once up, process svgs one by one
         ph.on("open", function() {
-            var out = {};
-            var keys = Object.keys(map);
-            grunt.util.async.forEachSeries(keys, function(key, callback) {
-                grunt.verbose.write("Rendering " + key + "...");
-                ph.send(map[key]);
+            grunt.util.async.forEachSeries(images, function(image, callback) {
+                grunt.verbose.write("Rendering " + image.filePath + "...");
+                ph.send(image.svg);
                 ph.once("message", function(result) {
                     if (result === "fail") {
                         grunt.verbose.error();
-                        var err = new Error("Could not render SVG '" + key);
-                        callback(err);
+
+                        callback(Error("Could not render " + image.filePath));
                     }
                     else {
                         grunt.verbose.ok();
-                        out[key] = JSON.parse(result);
+
+                        var result = JSON.parse(result);
+                        image.pngBase64 = result.base64;
+                        image.width = result.width;
+                        image.height = result.height;
+
                         callback(null);
                     }
                 });
@@ -165,36 +175,36 @@ module.exports = function(grunt) {
                 if (err)
                     callback(err);
                 else
-                    callback(null, out);
+                    callback(null);
             });
         });
 
     });
 
     // Write a stylesheet containing SVG data URIs.
-    grunt.registerHelper('iconsheet_svg_data', function(cssprefix, svgs, dest) {
-        var rules = grunt.utils._.map(svgs, function(raw, name) {
-            var buf = new Buffer(raw, "utf-8");
+    grunt.registerHelper('iconsheet_svg_data', function(cssprefix, images, dest) {
+        var rules = grunt.utils._.map(images, function(image) {
+            var buf = new Buffer(image.svg, "utf-8");
             var uri = "data:image/svg+xml;base64," + buf.toString("base64");
-            return "." + cssprefix + name + " { background-image: url(" + uri + "); background-repeat: no-repeat; }";
+            return "." + cssprefix + image.name + " { background-image: url(" + uri + "); background-repeat: no-repeat; }";
         });
         grunt.file.write(dest, rules.join("\n\n"));
     });
 
     // Write a stylesheet containing PNG data URIs.
-    grunt.registerHelper('iconsheet_png_data', function(cssprefix, pngs, dest) {
-        var rules = grunt.utils._.map(pngs, function(obj, name) {
-            var uri = "data:image/png;base64," + obj.base64;
-            return "." + cssprefix + name + " { background-image: url(" + uri + "); background-repeat: no-repeat; }";
+    grunt.registerHelper('iconsheet_png_data', function(cssprefix, images, dest) {
+        var rules = grunt.utils._.map(images, function(image) {
+            var uri = "data:image/png;base64," + image.pngBase64;
+            return "." + cssprefix + image.name + " { background-image: url(" + uri + "); background-repeat: no-repeat; }";
         });
         grunt.file.write(dest, rules.join("\n\n"));
     });
 
     // Write a stylesheet containing PNG fallback URLs.
-    grunt.registerHelper('iconsheet_png_url', function(cssprefix, pngs, pngfolder, dest) {
-        var rules = grunt.utils._.map(pngs, function(obj, name) {
-            var pngpath = path.join(pngfolder, name + ".png");
-            return "." + cssprefix + name + " { background-image: url(" + pngpath + "); background-repeat: no-repeat; }";
+    grunt.registerHelper('iconsheet_png_url', function(cssprefix, images, pngfolder, dest) {
+        var rules = grunt.utils._.map(images, function(image) {
+            var pngpath = path.join(pngfolder, image.name + ".png");
+            return "." + cssprefix + image.name + " { background-image: url(" + pngpath + "); background-repeat: no-repeat; }";
         });
         grunt.file.write(dest, rules.join("\n\n"));
     });
@@ -220,13 +230,13 @@ module.exports = function(grunt) {
     });
 
     // Write the preview html file.
-    grunt.registerHelper('icons_preview', function(cssprefix, pngs, datasvgcss, datapngcss, urlpngcss, dest) {
+    grunt.registerHelper('icons_preview', function(cssprefix, images, datasvgcss, datapngcss, urlpngcss, dest) {
         // get the loader code
         var loader = grunt.helper('icons_loader', '', datasvgcss, datapngcss, urlpngcss, false);
 
         // generate the body
-        var body = grunt.utils._.map(pngs, function(obj, name) {
-            return '<pre><code>.' + cssprefix + name + ':</code></pre><div class="' + cssprefix + name + '" style="width: '+ obj.width +'; height: '+ obj.height +'"></div><hr/>';
+        var body = grunt.utils._.map(images, function(image) {
+            return '<pre><code>.' + cssprefix + image.name + ':</code></pre><div class="' + cssprefix + image.name + '" style="width: '+ image.width +'; height: '+ image.height +'"></div><hr/>';
         });
 
         // build the preview from the template
