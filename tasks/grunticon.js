@@ -11,6 +11,11 @@ var noface = require('noface');
 
 module.exports = function(grunt) {
 
+    // generate scale filename suffix for a variant
+    function scaleSuffix(scale) {
+        return scale === 1 ? '' : '.x' + String(scale);
+    }
+
     grunt.registerMultiTask('grunticon', 'A mystical CSS icon solution.', function() {
         // get the config
         var config = typeof(this.data) === 'object' ? this.data : {};
@@ -22,10 +27,13 @@ module.exports = function(grunt) {
         if (!/\/$/.test(basedir))
             basedir += '/';
 
+        // scaled variants
+        var variants = config.variants || [1];
+
         // CSS filenames with optional mixin from config
-        var datasvgcss = config.datasvgcss || "icons.data.svg.css";
-        var datapngcss = config.datapngcss || "icons.data.png.css";
-        var urlpngcss = config.urlpngcss || "icons.fallback.css";
+        var datasvgcss = config.datasvgcss || "icons.data.svg";
+        var datapngcss = config.datapngcss || "icons.data.png";
+        var urlpngcss = config.urlpngcss || "icons.fallback";
 
         // folder name (within the output folder) for generated png files
         var pngfolder = config.pngfolder || "png/";
@@ -45,19 +53,24 @@ module.exports = function(grunt) {
                 // determine the icon class name
                 var className = cssprefix + rel.replace(/\//g, '-');
 
-                // determine the stylesheet relative path
-                var relPath = path.join(pngfolder, rel + '.png');
+                // push each variant onto the stack to process
+                variants.forEach(function(scale) {
+                    // determine the stylesheet relative path
+                    var name = rel + scaleSuffix(scale) + '.png';
+                    var relPath = path.join(pngfolder, name);
 
-                // determine output path
-                var destPath = path.join(dest, relPath);
+                    // determine output path
+                    var destPath = path.join(dest, relPath);
 
-                // push onto the stack to process
-                images.push({
-                    className: className,
-                    filePath: filePath,
-                    destPath: destPath,
-                    relPath: relPath,
-                    svg: grunt.file.read(filePath)
+                    // create the object
+                    images.push({
+                        className: className,
+                        filePath: filePath,
+                        destPath: destPath,
+                        relPath: relPath,
+                        scale: scale,
+                        svg: grunt.file.read(filePath)
+                    });
                 });
             }
         });
@@ -78,10 +91,27 @@ module.exports = function(grunt) {
             });
             grunt.log.writeln("Rendered " + images.length + " SVGs.");
 
-            // write stylesheets
-            grunt.helper('iconsheet_svg_data', images, path.join(dest, datasvgcss));
-            grunt.helper('iconsheet_png_data', images, path.join(dest, datapngcss));
-            grunt.helper('iconsheet_png_url', images, path.join(dest, urlpngcss));
+            variants.forEach(function(scale) {
+                var name;
+
+                // Select all images for this variant.
+                var variantImages = images.filter(function(image) {
+                    return image.scale === scale;
+                });
+
+                // write svg data uri stylesheet
+                name = datasvgcss + scaleSuffix(scale) + '.css';
+                grunt.helper('iconsheet_svg_data', variantImages, path.join(dest, name));
+
+                // write png data uri stylesheet
+                name = datapngcss + scaleSuffix(scale) + '.css';
+                grunt.helper('iconsheet_png_data', variantImages, path.join(dest, name));
+
+                // write png fallback url stylesheet
+                name = urlpngcss + scaleSuffix(scale) + '.css';
+                grunt.helper('iconsheet_png_url', variantImages, path.join(dest, name));
+            });
+
             grunt.log.writeln("Generated icon stylesheets.");
 
             done();
@@ -99,34 +129,32 @@ module.exports = function(grunt) {
         // spin up phantomjs to render pngs for us
         var ph = noface(function(channel) {
             channel.onmessage = function(event) {
-                var svgdata = event.data;
+                var image = JSON.parse(event.data);
 
                 var page = require("webpage").create();
 
                 // get svg element's dimensions so we can set the viewport dims later
                 var frag = window.document.createElement("div");
-                frag.innerHTML = svgdata;
+                frag.innerHTML = image.svg;
                 var svgelem = frag.querySelector("svg");
-                var width = svgelem.getAttribute("width");
-                var height = svgelem.getAttribute("height");
+                var width = parseFloat(svgelem.getAttribute("width")) * image.scale;
+                var height = parseFloat(svgelem.getAttribute("height")) * image.scale;
 
                 // set page viewport size to svg dimensions
-                page.viewportSize = {
-                    width: parseFloat(width),
-                    height: parseFloat(height)
-                };
+                page.viewportSize = { width: width, height: height };
+                page.zoomFactor = image.scale;
 
                 // open svg file in webkit to make a png
-                var svgdatauri = "data:image/svg+xml;base64," + btoa(svgdata);
+                var svgdatauri = "data:image/svg+xml;base64," + btoa(image.svg);
                 page.open(svgdatauri, function(status) {
                     if (status !== "success") {
                         channel.send("fail");
                     }
                     else {
                         // create png file
-                        var base64 = page.renderBase64("PNG");
+                        var pngBase64 = page.renderBase64("PNG");
                         channel.send(JSON.stringify({
-                            base64: base64,
+                            pngBase64: pngBase64,
                             width: width,
                             height: height
                         }));
@@ -143,7 +171,7 @@ module.exports = function(grunt) {
         ph.on("open", function() {
             grunt.util.async.forEachSeries(images, function(image, callback) {
                 grunt.verbose.write("Rendering " + image.filePath + "...");
-                ph.send(image.svg);
+                ph.send(JSON.stringify(image));
                 ph.once("message", function(result) {
                     if (result === "fail") {
                         grunt.verbose.error();
@@ -153,10 +181,10 @@ module.exports = function(grunt) {
                     else {
                         grunt.verbose.ok();
 
-                        var result = JSON.parse(result);
-                        image.pngBase64 = result.base64;
-                        image.width = result.width;
-                        image.height = result.height;
+                        var obj = JSON.parse(result);
+                        image.pngBase64 = obj.pngBase64;
+                        image.width = obj.width;
+                        image.height = obj.height;
 
                         callback(null);
                     }
@@ -178,7 +206,22 @@ module.exports = function(grunt) {
         var rules = grunt.utils._.map(images, function(image) {
             var buf = new Buffer(image.svg, "utf-8");
             var uri = "data:image/svg+xml;base64," + buf.toString("base64");
-            return "." + image.className + " { background-image: url(" + uri + "); background-repeat: no-repeat; }";
+            var sizerule;
+            if (image.scale !== 1) {
+                sizerule = "background-size: ";
+                if (image.width === image.height)
+                    sizerule += image.width + "px; ";
+                else
+                    sizerule += image.width + "px " + image.height + "px; ";
+            }
+            else {
+                sizerule = "";
+            }
+            return "." + image.className + " { " +
+                    "background-image: url(" + uri + "); " +
+                    "background-repeat: no-repeat; " +
+                    sizerule +
+                "}";
         });
         grunt.file.write(dest, rules.join("\n\n"));
     });
@@ -187,7 +230,10 @@ module.exports = function(grunt) {
     grunt.registerHelper('iconsheet_png_data', function(images, dest) {
         var rules = grunt.utils._.map(images, function(image) {
             var uri = "data:image/png;base64," + image.pngBase64;
-            return "." + image.className + " { background-image: url(" + uri + "); background-repeat: no-repeat; }";
+            return "." + image.className + " { " +
+                    "background-image: url(" + uri + "); " +
+                    "background-repeat: no-repeat; " +
+                "}";
         });
         grunt.file.write(dest, rules.join("\n\n"));
     });
@@ -195,7 +241,10 @@ module.exports = function(grunt) {
     // Write a stylesheet containing PNG fallback URLs.
     grunt.registerHelper('iconsheet_png_url', function(images, dest) {
         var rules = grunt.utils._.map(images, function(image) {
-            return "." + image.className + " { background-image: url(" + image.relPath + "); background-repeat: no-repeat; }";
+            return "." + image.className + " { " +
+                    "background-image: url(" + image.relPath + "); " +
+                    "background-repeat: no-repeat; " +
+                "}";
         });
         grunt.file.write(dest, rules.join("\n\n"));
     });
