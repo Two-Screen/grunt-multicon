@@ -1,38 +1,43 @@
 {
-	"name": "grunt-grunticon",
-	"description": "A mystical CSS icon solution",
-	"version": "0.1.5",
-	"homepage": "https://github.com/filamentgroup/grunticon",
-	"author": {
-		"name": "Scott Jehl",
-		"email": "scott@filamentgroup.com",
-		"url": "http://filamentgroup.com"
-	},
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/filamentgroup/grunticon.git"
-	},
-	"bugs": {
-		"url": "https://github.com/filamentgroup/grunticon/issues"
-	},
-	"licenses": [
-		{
-			"type": "MIT",
-			"url": "https://github.com/filamentgroup/grunticon/blob/master/LICENSE-MIT"
-		}
-	],
-	"main": "tasks/grunticon",
-	"engines": {
-		"node": "*"
-	},
-	"scripts": {
-		"test": "grunt test"
-	},
-	"dependencies": {
-		"grunt": "~0.3.9",
-		"noface": "0.1"
-	},
-	"keywords": [
-		"gruntplugin"
-	]
+    "name": "grunt-multicon",
+    "description": "A mystical CSS icon solution",
+    "version": "0.1.0",
+    "homepage": "https://github.com/Two-Screen/grunt-multicon",
+    "author": "Two Screen",
+    "contributors": [
+        "Stephan Kochen <stephan@two-screen.tv>",
+        "Mattijs Hoitink <mattijs@monkeyandmachine.com>"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/Two-Screen/grunt-multicon.git"
+    },
+    "bugs": {
+        "url": "https://github.com/Two-Screen/grunt-multicon/issues"
+    },
+    "licenses": [
+        {
+            "type": "MIT",
+            "url": "https://github.com/Two-Screen/multicon/blob/master/LICENSE-MIT"
+        }
+    ],
+    "main": "tasks/multicon",
+    "engines": {
+        "node": "*"
+    },
+    "scripts": {
+        "test": "grunt test"
+    },
+    "dependencies": {
+        "grunt": "~0.4.0",
+        "grunt-contrib-nodeunit": "~0.1.0",
+        "grunt-contrib-watch": "~0.2.0",
+        "grunt-contrib-jshint": "~0.1.0",
+        "noface": "0.1"
+    },
+    "keywords": [
+        "gruntplugin",
+        "icon",
+        "phantomjs"
+    ]
 }

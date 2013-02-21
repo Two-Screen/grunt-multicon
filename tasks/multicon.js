@@ -1,26 +1,48 @@
-/*
- * grunticon
- * https://github.com/filamentgroup/grunticon
+/**
+ * Grunt multicon task.
  *
- * Copyright (c) 2012 Scott Jehl, Filament Group, Inc
- * Licensed under the MIT license.
+ * @copyright (c) 2012, Two Screen
+ * @license The MIT License
+ * @author Stephan Kochen <stephan@two-screen.tv>
+ * @author Mattijs Hoitink <mattijs@monkeyandmachine.com>
  */
+"use strict";
 
 var path = require('path');
 var noface = require('noface');
 
+/**
+ *
+ */
 module.exports = function(grunt) {
 
-    // generate scale filename suffix for a variant
-    function scaleSuffix(scale) {
-        return scale === 1 ? '' : '.x' + String(scale);
-    }
-
-    grunt.registerMultiTask('grunticon', 'A mystical CSS icon solution.', function() {
-        // get the config
-        var config = typeof(this.data) === 'object' ? this.data : {};
-        var src = this.file.src;
-        var dest = this.file.dest;
+    /**
+     * Grunt multicon task definition.
+     *
+     *
+     * @example
+     *  multicon: {
+     *      build: {
+     *          options: {
+     *              src:            "example/source/",
+     *              dest:           "example/output/",
+     *              datasvgcss:     "icons.data.svg.css",
+     *              datapngcss:     "icons.data.png.css",
+     *              urlpngcss:      "icons.fallback.css",
+     *              previewhtml:    "preview.html",
+     *              loadersnippet:  "grunticon.loader.txt",
+     *              pngfolder:      "png/",
+     *              cssprefix:      "icon-wee-",
+     *              cssbasepath:    "/"
+     *          }
+     *      }
+     *  },
+     */
+    grunt.registerMultiTask('multicon', 'A mystical CSS icon solution.', function() {
+        // Get the config
+        var config = this.options();
+        var src = config.src;
+        var dest = config.dest;
 
         // base directory to strip off names
         var basedir = config.basedir || '';
@@ -43,7 +65,7 @@ module.exports = function(grunt) {
 
         // collect svgs
         var images = [];
-        grunt.file.expandFiles(src).forEach(function(filePath) {
+        grunt.file.expand(src).forEach(function(filePath) {
             if (/\.svg$/.test(filePath)) {
                 // strip of extension and base
                 var rel = filePath.slice(0, -4);
@@ -77,7 +99,7 @@ module.exports = function(grunt) {
 
         // render svgs to pngs
         var done = this.async();
-        grunt.helper('render_svgs', images, function(err) {
+        render_svgs(images, function(err) {
             if (err) {
                 grunt.log.error(err.message);
                 grunt.fail.warn("Failed to render SVGs. ");
@@ -101,15 +123,15 @@ module.exports = function(grunt) {
 
                 // write svg data uri stylesheet
                 name = datasvgcss + scaleSuffix(scale) + '.css';
-                grunt.helper('iconsheet_svg_data', variantImages, path.join(dest, name));
+                iconsheet_svg_data(variantImages, path.join(dest, name));
 
                 // write png data uri stylesheet
                 name = datapngcss + scaleSuffix(scale) + '.css';
-                grunt.helper('iconsheet_png_data', variantImages, path.join(dest, name));
+                iconsheet_png_data(variantImages, path.join(dest, name));
 
                 // write png fallback url stylesheet
                 name = urlpngcss + scaleSuffix(scale) + '.css';
-                grunt.helper('iconsheet_png_url', variantImages, path.join(dest, name));
+                iconsheet_png_url(variantImages, path.join(dest, name));
             });
 
             grunt.log.writeln("Generated icon stylesheets.");
@@ -119,12 +141,13 @@ module.exports = function(grunt) {
 
     });
 
-    // Render a bunch of SVGs to PNGs.
+    // Render a bunch onf SVGs to PNGs.
     //
     // Takes an array of objects, each with a `svg` attribute containing
     // string SVG data and a `filePath`. The attributes `pngBase64`, `width`
     // and `height` will be set on each of the objects on success.
-    grunt.registerHelper('render_svgs', function(images, callback) {
+    function render_svgs(images, callback) {
+        /*global window:true*/
 
         // spin up phantomjs to render pngs for us
         var ph = noface(function(channel) {
@@ -145,7 +168,7 @@ module.exports = function(grunt) {
                 page.zoomFactor = image.scale;
 
                 // open svg file in webkit to make a png
-                var svgdatauri = "data:image/svg+xml;base64," + btoa(image.svg);
+                var svgdatauri = "data:image/svg+xml;base64," + window.btoa(image.svg);
                 page.open(svgdatauri, function(status) {
                     if (status !== "success") {
                         channel.send("fail");
@@ -199,11 +222,11 @@ module.exports = function(grunt) {
             });
         });
 
-    });
+    }
 
     // Write a stylesheet containing SVG data URIs.
-    grunt.registerHelper('iconsheet_svg_data', function(images, dest) {
-        var rules = grunt.utils._.map(images, function(image) {
+   function iconsheet_svg_data(images, dest) {
+        var rules = grunt.util._.map(images, function(image) {
             var buf = new Buffer(image.svg, "utf-8");
             var uri = "data:image/svg+xml;base64," + buf.toString("base64");
             var sizerule;
@@ -224,11 +247,11 @@ module.exports = function(grunt) {
                 "}";
         });
         grunt.file.write(dest, rules.join("\n\n"));
-    });
+    }
 
     // Write a stylesheet containing PNG data URIs.
-    grunt.registerHelper('iconsheet_png_data', function(images, dest) {
-        var rules = grunt.utils._.map(images, function(image) {
+    function iconsheet_png_data(images, dest) {
+        var rules = grunt.util._.map(images, function(image) {
             var uri = "data:image/png;base64," + image.pngBase64;
             return "." + image.className + " { " +
                     "background-image: url(" + uri + "); " +
@@ -236,17 +259,22 @@ module.exports = function(grunt) {
                 "}";
         });
         grunt.file.write(dest, rules.join("\n\n"));
-    });
+    }
 
     // Write a stylesheet containing PNG fallback URLs.
-    grunt.registerHelper('iconsheet_png_url', function(images, dest) {
-        var rules = grunt.utils._.map(images, function(image) {
+    function iconsheet_png_url(images, dest) {
+        var rules = grunt.util._.map(images, function(image) {
             return "." + image.className + " { " +
                     "background-image: url(" + image.relPath + "); " +
                     "background-repeat: no-repeat; " +
                 "}";
         });
         grunt.file.write(dest, rules.join("\n\n"));
-    });
+    }
+
+    // generate scale filename suffix for a variant
+    function scaleSuffix(scale) {
+        return scale === 1 ? '' : '.x' + String(scale);
+    }
 
 };
