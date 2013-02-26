@@ -64,6 +64,18 @@ module.exports = function(grunt) {
             scales:   [ 1 ]
         });
 
+        // Update nested objects
+        config.css = _.defaults(config.css || {}, {
+            prefix: 'icon-',
+            baseurl: '/'
+        });
+        config.sheets = _.defaults(config.sheets || {}, {
+            svg:      "icons.data.svg.css",
+            png:      "icons.data.png.css",
+            fallback: "icons.fallback.css"
+        });
+
+
         // Get the source and destination files from the files property.
         // There should only be one definition, so we take the first one.
         config.paths = this.files.shift();
@@ -131,12 +143,14 @@ module.exports = function(grunt) {
             var relSource = fullSource.replace(new RegExp('^' + config.basepath + '/'), '');
 
             // Determine the icon class name
-            var classname = config.css.prefix + slug(path.basename(relSource));
+            var classname = path.basename(fullSource);
+            var chop = classname.length - path.extname(fullSource).length;
+            classname = config.css.prefix + classname.substring(0, chop);
 
             // Push each scaled version onto the stack to process
             config.scales.forEach(function(scale) {
                 // Determine the icons filename and destination output path
-                var scaledName = scaledFilename(relSource).replace(/svg$/, 'png');
+                var scaledName = scaledFilename(relSource, scale).replace(/svg$/, 'png');
                 var relPath    = path.join(config.folder, scaledName);
                 var destPath   = path.join(config.paths.dest, relPath);
 
@@ -335,20 +349,20 @@ module.exports = function(grunt) {
         var sizerule;
         if (image.scale !== 1) {
             sizerule = "background-size: ";
-            if (image.width === image.height) {
-                sizerule += image.width + "px; ";
+            if (image.png.width === image.png.height) {
+                sizerule += image.png.width + "px; ";
             } else {
-                sizerule += image.width + "px " + image.height + "px; ";
+                sizerule += image.png.width + "px " + image.png.height + "px; ";
             }
         }
         else {
             sizerule = "";
         }
-        return "." + image.classname + " { " +
-                "background-image: url('" + uri + "'); " +
-                "background-repeat: no-repeat; " +
+        return '.' + image.classname + ' { ' +
+                'background-image: url(' + uri + '); ' +
+                'background-repeat: no-repeat; ' +
                 sizerule +
-            "}";
+            '}';
     }
 
     /**
@@ -359,10 +373,10 @@ module.exports = function(grunt) {
      */
     function pngDataRule(image) {
         var uri = "data:image/png;base64," + image.png.data.toString('base64');
-        return "." + image.classname + " { " +
-                "background-image: url('" + uri + "'); " +
-                "background-repeat: no-repeat; " +
-            "}";
+        return '.' + image.classname + ' { ' +
+                'background-image: url(' + uri + '); ' +
+                'background-repeat: no-repeat; ' +
+            '}';
     }
 
     /**
@@ -372,10 +386,15 @@ module.exports = function(grunt) {
      * @return {String}         The generated CSS rule.
      */
     function fallbackCSSRule(image) {
-        return "." + image.classname + " { " +
-                "background-image: url('" + image.url + "'); " +
-                "background-repeat: no-repeat; " +
-            "}";
+
+        var tmpl = '.<%= class => {' +
+                   'background-image: url("<%= url =>");' +
+                   ' background-repeat: no-repeat;';
+
+        return '.' + image.classname + ' { ' +
+                'background-image: url("' + image.url + '"); ' +
+                'background-repeat: no-repeat; ' +
+            '}';
     }
 
     // generate scale filename suffix for a variant
