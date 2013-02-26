@@ -1,12 +1,11 @@
 {
     "name":         "grunt-multicon",
-    "description":  "A mystical CSS icon solution",
+    "description":  "Generate icon CSS stylesheets from SVG images.",
     "version":      "0.2.0",
     "homepage":     "https://github.com/Two-Screen/grunt-multicon",
-    "author":       "Two Screen",
+    "author":       "Mattijs Hoitink <mattijs@monkeyandmachine.com>"
     "contributors": [
-        "Stephan Kochen  <stephan@two-screen.tv>",
-        "Mattijs Hoitink <mattijs@monkeyandmachine.com>"
+        "Stéphan Kochen <stephan@kochen.nl>",
     ],
     "repository": {
         "type": "git",
@@ -34,7 +33,6 @@
         "slugg":                  "~0.0.1"
     },
     "devDependencies": {
-        "grunt-contrib-nodeunit": "~0.1.0",
         "grunt-contrib-watch":    "~0.2.0",
         "grunt-contrib-jshint":   "~0.1.0",
         "grunt-contrib-clean":    "~0.4.0"
