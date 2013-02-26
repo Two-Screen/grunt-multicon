@@ -73,8 +73,4 @@ This is an example task defintion from a `Gruntfile.js` file:
 
 ### Example icons attribution
 
-The example SVG icons in the source folder are borrowed from a few places:
-- [Unicorn icon by Andrew McKinley, The Noun Project](http://thenounproject.com/noun/unicorn/#icon-No3364)
-- [Bear icon by National Park Service](http://thenounproject.com/noun/bear/#icon-No499)
-- [Cat icon by  Marie Coons](http://thenounproject.com/noun/cat/#icon-No840)
-- All others are either from [this free set by Tehk Seven](http://www.tehkseven.net/blog/1/entry-1066-475-free-awesome-high-quality-icons-for-designers/) or drawn by @toddparker of Filament Group
+The awesome example SVG icons are from the [Tango Desktop Project](http://tango.freedesktop.org/) and released in the Public Domain.
