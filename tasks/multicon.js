@@ -1,10 +1,11 @@
 /**
  * Grunt multicon task.
  *
- * @copyright (c) 2013, Stephan Kochen, Mattijs Hoitink Two Screen
+ * @copyright (c) 2013, Stephan Kochen, Mattijs Hoitink, Two Screen
  * @license The MIT License
- * @author Stephan Kochen <stephan@two-screen.tv>
  * @author Mattijs Hoitink <mattijs@monkeyandmachine.com>
+ * @author Stéphan Kochen <stephan@kochen.nl>
+ * @see https://github.com/Two-Screen/grunt-multicon#readme
  */
 "use strict";
 
@@ -15,10 +16,11 @@ var slug   = require('slugg');
 
 // Export for Grunt.
 module.exports = function(grunt) {
+    var _ = grunt.util._;
+    var async = grunt.util.async;
 
     /**
      * Grunt multicon task definition.
-     *
      *
      * @example
      *  multicon: {
@@ -33,8 +35,7 @@ module.exports = function(grunt) {
      *                  png:      "icons.data.png.css",
      *                  fallback: "icons.fallback.css"
      *              },
-     *              preview:      "preview.html",
-     *              basepath:     ".",
+     *              basepath:     "",
      *              folder:       "png",
      *              scales:       [ 1 ]
      *          },
@@ -43,10 +44,7 @@ module.exports = function(grunt) {
      *      }
      *  },
      */
-    grunt.registerMultiTask('multicon', 'Create stylesheets from SVG icons.', function() {
-        var _ = grunt.util._;
-        var async = grunt.util.async;
-
+    grunt.registerMultiTask('multicon', 'Create icon stylesheets from SVG images.', function() {
         // This is an async task
         var done = this.async();
 
@@ -62,7 +60,6 @@ module.exports = function(grunt) {
                 fallback: "icons.fallback.css"
             },
             basepath: '',
-            preview:  'preview.html',
             folder:   'png',
             scales:   [ 1 ]
         });
@@ -73,9 +70,11 @@ module.exports = function(grunt) {
 
         // The base path will be stripped off source file paths before writing
         // the icons to the destination. Make sure it ends with a '/'.
-        if (!/\/$/.test(config.basepath)) {
-            config.basepath += '/';
-        }
+        //if (!/\/$/.test(config.basepath)) {
+            //config.basepath += '/';
+        //}
+        // Make sure basepath is resolved to an absolute path
+        config.basepath = path.resolve(config.basepath);
 
         // Wrap a function and add the config as the first parameter when
         // calling the wrapped function
@@ -91,9 +90,8 @@ module.exports = function(grunt) {
                 configure(collectSVGFiles)(null, next);
             },
             renderPNGImages,
-            configure(writePNGImages),
-            configure(writeCSSFiles),
-            //configure(writeHTMLPreview)
+            writePNGImages,
+            configure(writeCSSFiles)
         ], function(error, result) {
             if (error) {
                 grunt.fail.fatal(error);
@@ -125,20 +123,22 @@ module.exports = function(grunt) {
 
         // Process the SVG files and construct required configuration per
         // image version
-        files.forEach(function(filePath) {
-            // Strip of extension and base path
-            var name = filePath.slice(0, path.extname(filePath).length * -1);
-            name = path.relative(config.basepath, name);
+        files.forEach(function(source) {
+            // Resolve full path for the source image
+            var fullSource = path.resolve(source);
+
+            // Strip base path
+            var relSource = fullSource.replace(new RegExp('^' + config.basepath + '/'), '');
 
             // Determine the icon class name
-            var classname = config.css.prefix + slug(path.basename(name));
+            var classname = config.css.prefix + slug(path.basename(relSource));
 
             // Push each scaled version onto the stack to process
             config.scales.forEach(function(scale) {
                 // Determine the icons filename and destination output path
-                var filename = name + scaleSuffix(scale) + '.png';
-                var destPath = path.join(config.paths.dest, config.folder, filename);
-                var relPath  = path.relative(config.paths.dest, destPath);
+                var scaledName = scaledFilename(relSource).replace(/svg$/, 'png');
+                var relPath    = path.join(config.folder, scaledName);
+                var destPath   = path.join(config.paths.dest, relPath);
 
                 // Determine the image's URL
                 var url = relPath.replace('\\', '/');
@@ -150,13 +150,13 @@ module.exports = function(grunt) {
                 // Build the data Object for processing the image version
                 images.push({
                     scale:     scale,
-                    filename:  filename,
+                    filename:  scaledName,
                     classname: classname,
                     destPath:  destPath,
                     relPath:   relPath,
                     url:       url,
                     svg:      {
-                        data: grunt.file.read(filePath)
+                        data: grunt.file.read(source)
                     }
                 });
             });
@@ -165,7 +165,16 @@ module.exports = function(grunt) {
         callback(null, images);
     }
 
-    function writePNGImages(config, images, callback) {
+    /**
+     * Write a list of images as PNG files to disk
+     *
+     * @param {Array} images        The list of images to write to disk. Each
+     *                              images is represented as an Object containing
+     *                              image data.
+     * @param {Function} callback   Callback is called when writing is finished,
+     *                              with two parameters: error and the list of images
+     */
+    function writePNGImages(images, callback) {
         grunt.util._.each(images, function(image) {
             grunt.file.write(image.destPath, image.png.data);
         });
@@ -173,6 +182,17 @@ module.exports = function(grunt) {
         callback(null, images);
     }
 
+    /**
+     * Write CSS files for the images to disk. Three CSS file per image scale
+     * are generated.
+     *
+     * @param {Object} config       Config object
+     * @param {Array} images        The list of images to write to disk. Each
+     *                              images is represented as an Object containing
+     *                              image data.
+     * @param {Function} callback   Callback is called when writing is finished,
+     *                              with two parameters: error and the list of images
+     */
     function writeCSSFiles(config, images, callback) {
         var _ = grunt.util._;
 
@@ -184,20 +204,20 @@ module.exports = function(grunt) {
 
             // Check if a sheet is defined for the image scale
             _.each(config.sheets, function(name, type) {
-                var filename = sheetName(name, scale);
+                var filename = scaledFilename(name, scale);
                 if (!sheets[filename]) {
                     sheets[filename] = [];
                 }
             });
 
             // Build SVG data rule for the image
-            sheets[sheetName(config.sheets.svg, scale)].push(svgDataRule(image));
+            sheets[scaledFilename(config.sheets.svg, scale)].push(svgDataRule(image));
 
             // Build PNG data rule for the image
-            sheets[sheetName(config.sheets.png, scale)].push(pngDataRule(image));
+            sheets[scaledFilename(config.sheets.png, scale)].push(pngDataRule(image));
 
             // Build fallback rule for the image
-            sheets[sheetName(config.sheets.fallback, scale)].push(fallbackCSSRule(image));
+            sheets[scaledFilename(config.sheets.fallback, scale)].push(fallbackCSSRule(image));
         });
 
         // Write all sheet versions to disk
@@ -303,6 +323,12 @@ module.exports = function(grunt) {
     }
 
 
+    /**
+     * Create an CSS data URI rule with SVG image data.
+     *
+     * @param {Object} Image    The image to create the rule for.
+     * @return {String}         The generated CSS rule.
+     */
     function svgDataRule(image) {
         var buf = new Buffer(image.svg.data, "utf-8");
         var uri = "'data:image/svg+xml;base64," + buf.toString("base64") + "'";
@@ -325,7 +351,12 @@ module.exports = function(grunt) {
             "}";
     }
 
-    // Write a stylesheet containing PNG data URIs.
+    /**
+     * Create an CSS data URI rule with PNG image data.
+     *
+     * @param {Object} Image    The image to create the rule for.
+     * @return {String}         The generated CSS rule.
+     */
     function pngDataRule(image) {
         var uri = "data:image/png;base64," + image.png.data.toString('base64');
         return "." + image.classname + " { " +
@@ -334,7 +365,12 @@ module.exports = function(grunt) {
             "}";
     }
 
-    // Write a stylesheet containing PNG fallback URLs.
+    /**
+     * Create an CSS background rule with an URL to an image.
+     *
+     * @param {Object} Image    The image to create the rule for.
+     * @return {String}         The generated CSS rule.
+     */
     function fallbackCSSRule(image) {
         return "." + image.classname + " { " +
                 "background-image: url('" + image.url + "'); " +
@@ -349,16 +385,19 @@ module.exports = function(grunt) {
 
     /**
      * Generate a stylesheet name with an optional scale number included.
-     * @param {String} base
+     * @param {String} filename
      * @param {String|Number} scale
      * @return {String}
      */
-    function sheetName(base, scale) {
-        if (/\.css$/.test(base)) {
-            base = base.substring(0, base.length - 4);
+    function scaledFilename(filename, scale) {
+        if (!scale) {
+            return filename;
         }
 
-        return base + scaleSuffix(scale) + '.css';
+        // Insert scale suffix before the extension
+        var regex = /(\.(?:css|svg|png))?$/i;
+        var suffix = scaleSuffix(scale);
+        return filename.replace(regex, suffix + "$&");
     }
 
     /**
