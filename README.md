@@ -68,8 +68,8 @@ This is an example task defintion from a `Gruntfile.js` file:
 
 `grunt-multicon` is licensed under the MIT license. See the LICENSE file for more details.
 
-  Copyright (c) 2012 Scott Jehl, [Filament Group, Inc.](http://filamentgroup.com)
-  Copyright (c) 2013, Stephan Kochen, Mattijs Hoitink, [Two Screen](http://two-screen.tv)
+    Copyright (c) 2012 Scott Jehl, [Filament Group, Inc.](http://filamentgroup.com)
+    Copyright (c) 2013, Stephan Kochen, Mattijs Hoitink, [Two Screen](http://two-screen.tv)
 
 
 ### Example icons attribution

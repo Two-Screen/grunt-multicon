@@ -1,19 +1,19 @@
 /**
  * Grunt multicon task.
  *
- * @copyright (c) 2012, Two Screen
+ * @copyright (c) 2013, Stephan Kochen, Mattijs Hoitink Two Screen
  * @license The MIT License
  * @author Stephan Kochen <stephan@two-screen.tv>
  * @author Mattijs Hoitink <mattijs@monkeyandmachine.com>
  */
 "use strict";
 
-var path = require('path');
+var fs     = require('fs');
+var path   = require('path');
 var noface = require('noface');
+var slug   = require('slugg');
 
-/**
- *
- */
+// Export for Grunt.
 module.exports = function(grunt) {
 
     /**
@@ -24,252 +24,319 @@ module.exports = function(grunt) {
      *  multicon: {
      *      build: {
      *          options: {
-     *              src:            "example/source/",
-     *              dest:           "example/output/",
-     *              datasvgcss:     "icons.data.svg.css",
-     *              datapngcss:     "icons.data.png.css",
-     *              urlpngcss:      "icons.fallback.css",
-     *              previewhtml:    "preview.html",
-     *              loadersnippet:  "grunticon.loader.txt",
-     *              pngfolder:      "png/",
-     *              cssprefix:      "icon-wee-",
-     *              cssbasepath:    "/"
-     *          }
+     *              css: {
+     *                  prefix:   "icon-",
+     *                  baseurl:  "/"
+     *              },
+     *              sheets: {
+     *                  svg:      "icons.data.svg.css",
+     *                  png:      "icons.data.png.css",
+     *                  fallback: "icons.fallback.css"
+     *              },
+     *              preview:      "preview.html",
+     *              basepath:     ".",
+     *              folder:       "png",
+     *              scales:       [ 1 ]
+     *          },
+     *          src:  [ "example/source/\*.svg" ],
+     *          dest: "example/output",
      *      }
      *  },
      */
-    grunt.registerMultiTask('multicon', 'A mystical CSS icon solution.', function() {
-        // Get the config
-        var config = this.options();
-        var src = config.src;
-        var dest = config.dest;
+    grunt.registerMultiTask('multicon', 'Create stylesheets from SVG icons.', function() {
+        var _ = grunt.util._;
+        var async = grunt.util.async;
 
-        // base directory to strip off names
-        var basedir = config.basedir || '';
-        if (!/\/$/.test(basedir))
-            basedir += '/';
-
-        // scaled variants
-        var variants = config.variants || [1];
-
-        // CSS filenames with optional mixin from config
-        var datasvgcss = config.datasvgcss || "icons.data.svg";
-        var datapngcss = config.datapngcss || "icons.data.png";
-        var urlpngcss = config.urlpngcss || "icons.fallback";
-
-        // folder name (within the output folder) for generated png files
-        var pngfolder = config.pngfolder || "png/";
-
-        // css class prefix
-        var cssprefix = config.cssprefix || "icon-";
-
-        // collect svgs
-        var images = [];
-        grunt.file.expand(src).forEach(function(filePath) {
-            if (/\.svg$/.test(filePath)) {
-                // strip of extension and base
-                var rel = filePath.slice(0, -4);
-                if (rel.slice(0, basedir.length) === basedir)
-                    rel = rel.slice(basedir.length);
-
-                // determine the icon class name
-                var className = cssprefix + rel.replace(/\//g, '-');
-
-                // push each variant onto the stack to process
-                variants.forEach(function(scale) {
-                    // determine the stylesheet relative path
-                    var name = rel + scaleSuffix(scale) + '.png';
-                    var relPath = path.join(pngfolder, name);
-
-                    // determine output path
-                    var destPath = path.join(dest, relPath);
-
-                    // create the object
-                    images.push({
-                        className: className,
-                        filePath: filePath,
-                        destPath: destPath,
-                        relPath: relPath,
-                        scale: scale,
-                        svg: grunt.file.read(filePath)
-                    });
-                });
-            }
-        });
-
-        // render svgs to pngs
+        // This is an async task
         var done = this.async();
-        render_svgs(images, function(err) {
-            if (err) {
-                grunt.log.error(err.message);
-                grunt.fail.warn("Failed to render SVGs. ");
-                return done();
-            }
 
-            // write fallback pngs
-            grunt.util._.each(images, function(image) {
-                var buf = new Buffer(image.pngBase64, "base64");
-                grunt.file.write(image.destPath, buf);
-            });
-            grunt.log.writeln("Rendered " + images.length + " SVGs.");
-
-            variants.forEach(function(scale) {
-                var name;
-
-                // Select all images for this variant.
-                var variantImages = images.filter(function(image) {
-                    return image.scale === scale;
-                });
-
-                // write svg data uri stylesheet
-                name = datasvgcss + scaleSuffix(scale) + '.css';
-                iconsheet_svg_data(variantImages, path.join(dest, name));
-
-                // write png data uri stylesheet
-                name = datapngcss + scaleSuffix(scale) + '.css';
-                iconsheet_png_data(variantImages, path.join(dest, name));
-
-                // write png fallback url stylesheet
-                name = urlpngcss + scaleSuffix(scale) + '.css';
-                iconsheet_png_url(variantImages, path.join(dest, name));
-            });
-
-            grunt.log.writeln("Generated icon stylesheets.");
-
-            done();
+        // Get the config
+        var config = this.options({
+            css: {
+                prefix: 'icon-',
+                baseurl: '/'
+            },
+            sheets: {
+                svg:      "icons.data.svg.css",
+                png:      "icons.data.png.css",
+                fallback: "icons.fallback.css"
+            },
+            basepath: '',
+            preview:  'preview.html',
+            folder:   'png',
+            scales:   [ 1 ]
         });
 
+        // Get the source and destination files from the files property
+        // There should only be one definition, so we take the first one
+        config.paths = this.files.shift();
+
+        // The base path will be stripped off source file paths before writing
+        // the icons to the destination. Make sure it ends with a '/'.
+        if (!/\/$/.test(config.basepath)) config.basepath += '/';
+
+        // Wrap a function and add the config as the first parameter when
+        // calling the wrapped function
+        function configure(fn) {
+            return function(images, callback) {
+                return fn(config, images, callback);
+            };
+        }
+
+        // Start doing things, it alls down the drain from here
+        async.waterfall([
+            function(next) {
+                configure(collectSVGFiles)(null, next);
+            },
+            renderPNGImages,
+            configure(writePNGImages),
+            configure(writeCSSFiles),
+            //configure(writeHTMLPreview)
+        ], function(error, result) {
+            if (error) {
+                grunt.fail.fatal(error);
+            }
+            else {
+                // We are all done
+                grunt.log.writeln('Wrote icons and stylesheets to ' + config.paths.dest.cyan);
+            }
+        });
     });
+
+    /**
+     * Collect icon files that have to be processed. A data object is created
+     * for each image containing paths and the icon data.
+     *
+     * The config object contains configuration parameters for finding icons
+     * and how to process them. It should at least contain a `paths` object
+     * with a `src` and `dest` key for reading and writing the icon files.
+     *
+     * @param {Object} config
+     * @param {Function} callback
+     */
+    function collectSVGFiles(config, images, callback) {
+        // Collect SVG files from the source location(s)
+        var files = config.paths.src.filter(isSvgFile);
+
+        // Reset images list (assume it is empty)
+        images = [];
+
+        // Process the SVG files and construct required configuration per
+        // image version
+        files.forEach(function(filePath) {
+            // Strip of extension and base path
+            var name = filePath.slice(0, path.extname(filePath).length * -1);
+            name = path.relative(config.basepath, name);
+
+            // Determine the icon class name
+            var classname = config.css.prefix + slug(path.basename(name));
+
+            // Push each scaled version onto the stack to process
+            config.scales.forEach(function(scale) {
+                // Determine the icons filename and destination output path
+                var filename = name + scaleSuffix(scale) + '.png';
+                var destPath = path.join(config.paths.dest, config.folder, filename);
+                var relPath  = path.relative(config.paths.dest, destPath);
+
+                // Determine the image's URL
+                var url = relPath.replace('\\', '/');
+                var baseurl = config.css.baseurl;
+                if (baseurl && typeof(baseurl) === 'string' && baseurl.length > 0) {
+                    url = baseurl + '/' + url;
+                }
+
+                // Build the data Object for processing the image version
+                images.push({
+                    scale:     scale,
+                    filename:  filename,
+                    classname: classname,
+                    destPath:  destPath,
+                    relPath:   relPath,
+                    url:       url,
+                    svg:      {
+                        data: grunt.file.read(filePath)
+                    }
+                });
+            });
+        });
+
+        callback(null, images);
+    }
+
+    function writePNGImages(config, images, callback) {
+        grunt.util._.each(images, function(image) {
+            grunt.file.write(image.destPath, image.png.data);
+        });
+
+        callback(null, images);
+    }
+
+    function writeCSSFiles(config, images, callback) {
+        var _ = grunt.util._;
+
+        // Build CSS rules for the three CSS stylesheets out of the images
+        var sheets = {};
+
+        images.forEach(function(image) {
+            var scale = image.scale;
+
+            // Check if a sheet is defined for the image scale
+            _.each(config.sheets, function(name, type) {
+                var filename = sheetName(name, scale);
+                if (!sheets[filename]) {
+                    sheets[filename] = [];
+                }
+            });
+
+            // Build SVG data rule for the image
+            sheets[sheetName(config.sheets.svg, scale)].push(svgDataRule(image));
+
+            // Build PNG data rule for the image
+            sheets[sheetName(config.sheets.png, scale)].push(pngDataRule(image));
+
+            // Build fallback rule for the image
+            sheets[sheetName(config.sheets.fallback, scale)].push(fallbackCSSRule(image));
+        });
+
+        // Write all sheet versions to disk
+        _.each(sheets, function(rules, filename) {
+            grunt.file.write(path.join(config.paths.dest, filename), rules.join('\n\n'));
+        });
+
+        // All done
+        callback(null, images);
+    }
 
     // Render a bunch onf SVGs to PNGs.
     //
     // Takes an array of objects, each with a `svg` attribute containing
     // string SVG data and a `filePath`. The attributes `pngBase64`, `width`
     // and `height` will be set on each of the objects on success.
-    function render_svgs(images, callback) {
+    function renderPNGImages(images, callback) {
         /*global window:true*/
 
         // spin up phantomjs to render pngs for us
         var ph = noface(function(channel) {
             channel.onmessage = function(event) {
                 var image = JSON.parse(event.data);
+                var page  = require("webpage").create();
 
-                var page = require("webpage").create();
-
-                // get svg element's dimensions so we can set the viewport dims later
+                // Get svg element's dimensions so we can set the viewport
+                // dimensions
                 var frag = window.document.createElement("div");
-                frag.innerHTML = image.svg;
+                frag.innerHTML = image.svg.data;
                 var svgelem = frag.querySelector("svg");
                 var width = parseFloat(svgelem.getAttribute("width")) * image.scale;
                 var height = parseFloat(svgelem.getAttribute("height")) * image.scale;
 
-                // set page viewport size to svg dimensions
+                // Set page viewport size to SVG dimensions
                 page.viewportSize = { width: width, height: height };
                 page.zoomFactor = image.scale;
 
-                // open svg file in webkit to make a png
-                var svgdatauri = "data:image/svg+xml;base64," + window.btoa(image.svg);
+                // Open SVG file in webkit to make a PNG
+                var svgdatauri = "data:image/svg+xml;base64," + window.btoa(image.svg.data);
                 page.open(svgdatauri, function(status) {
                     if (status !== "success") {
                         channel.send("fail");
                     }
                     else {
-                        // create png file
+                        // Render the png image
                         var pngBase64 = page.renderBase64("PNG");
                         channel.send(JSON.stringify({
-                            pngBase64: pngBase64,
-                            width: width,
+                            data:   pngBase64,
+                            width:  width,
                             height: height
                         }));
                     }
                 });
             };
-        });
+        }, { stdio: [0,1,2] });
 
+        // Error handler for PhantomJS
         ph.on("error", function(err) {
             callback(err);
         });
 
-        // once up, process svgs one by one
+        // Wait fot PhantomJS to be ready
         ph.on("open", function() {
+
+            // Render each SVG as a PNG image through PhantomJS
             grunt.util.async.forEachSeries(images, function(image, callback) {
-                grunt.verbose.write("Rendering " + image.filePath + "...");
+                grunt.verbose.write("Rendering " + image.relPath + "...");
+
+                // Send image data to PhantomJS
                 ph.send(JSON.stringify(image));
+
+                // Wait for a response, only once
                 ph.once("message", function(result) {
                     if (result === "fail") {
                         grunt.verbose.error();
-
-                        callback(Error("Could not render " + image.filePath));
+                        callback(Error("Could not render " + image.relPath));
                     }
                     else {
                         grunt.verbose.ok();
 
+                        // Update the image with png data
                         var obj = JSON.parse(result);
-                        image.pngBase64 = obj.pngBase64;
-                        image.width = obj.width;
-                        image.height = obj.height;
+                        image.png = obj;
+                        image.png.data = new Buffer(image.png.data, 'base64');
 
+                        // Done
                         callback(null);
                     }
                 });
             }, function(err) {
                 ph.close();
 
-                if (err)
+                if (err) {
                     callback(err);
-                else
-                    callback(null);
+                }
+                else {
+                    grunt.log.writeln("Rendered " + images.length + " SVGs.");
+                    callback(null, images);
+                }
             });
         });
 
     }
 
-    // Write a stylesheet containing SVG data URIs.
-   function iconsheet_svg_data(images, dest) {
-        var rules = grunt.util._.map(images, function(image) {
-            var buf = new Buffer(image.svg, "utf-8");
-            var uri = "data:image/svg+xml;base64," + buf.toString("base64");
-            var sizerule;
-            if (image.scale !== 1) {
-                sizerule = "background-size: ";
-                if (image.width === image.height)
-                    sizerule += image.width + "px; ";
-                else
-                    sizerule += image.width + "px " + image.height + "px; ";
-            }
-            else {
-                sizerule = "";
-            }
-            return "." + image.className + " { " +
-                    "background-image: url(" + uri + "); " +
-                    "background-repeat: no-repeat; " +
-                    sizerule +
-                "}";
-        });
-        grunt.file.write(dest, rules.join("\n\n"));
+
+    function svgDataRule(image) {
+        var buf = new Buffer(image.svg.data, "utf-8");
+        var uri = "'data:image/svg+xml;base64," + buf.toString("base64") + "'";
+        var sizerule;
+        if (image.scale !== 1) {
+            sizerule = "background-size: ";
+            if (image.width === image.height)
+                sizerule += image.width + "px; ";
+            else
+                sizerule += image.width + "px " + image.height + "px; ";
+        }
+        else {
+            sizerule = "";
+        }
+        return "." + image.classname + " { " +
+                "background-image: url('" + uri + "'); " +
+                "background-repeat: no-repeat; " +
+                sizerule +
+            "}";
     }
 
     // Write a stylesheet containing PNG data URIs.
-    function iconsheet_png_data(images, dest) {
-        var rules = grunt.util._.map(images, function(image) {
-            var uri = "data:image/png;base64," + image.pngBase64;
-            return "." + image.className + " { " +
-                    "background-image: url(" + uri + "); " +
-                    "background-repeat: no-repeat; " +
-                "}";
-        });
-        grunt.file.write(dest, rules.join("\n\n"));
+    function pngDataRule(image) {
+        var uri = "data:image/png;base64," + image.png.data.toString('base64');
+        return "." + image.classname + " { " +
+                "background-image: url('" + uri + "'); " +
+                "background-repeat: no-repeat; " +
+            "}";
     }
 
     // Write a stylesheet containing PNG fallback URLs.
-    function iconsheet_png_url(images, dest) {
-        var rules = grunt.util._.map(images, function(image) {
-            return "." + image.className + " { " +
-                    "background-image: url(" + image.relPath + "); " +
-                    "background-repeat: no-repeat; " +
-                "}";
-        });
-        grunt.file.write(dest, rules.join("\n\n"));
+    function fallbackCSSRule(image) {
+        return "." + image.classname + " { " +
+                "background-image: url('" + image.url + "'); " +
+                "background-repeat: no-repeat; " +
+            "}";
     }
 
     // generate scale filename suffix for a variant
@@ -277,4 +344,32 @@ module.exports = function(grunt) {
         return scale === 1 ? '' : '.x' + String(scale);
     }
 
+    /**
+     * Generate a stylesheet name with an optional scale number included.
+     * @param {String} base
+     * @param {String|Number} scale
+     * @return {String}
+     */
+    function sheetName(base, scale) {
+        if (/\.css$/.test(base)) {
+            base = base.substring(0, base.length - 4);
+        }
+
+        return base + scaleSuffix(scale) + '.css';
+    }
+
+    /**
+     * Check if a file path is an SVG image file. The file contents are not
+     * inspected, only it's existence and extension'
+     *
+     * @param {String} filePath
+     * @return {Boolean}
+     */
+    function isSvgFile(filePath) {
+        if (!filePath) return false;
+        filePath = path.resolve(filePath);
+        return fs.existsSync(filePath)
+            && fs.lstatSync(filePath)
+            && /\.svg$/.test(filePath);
+    }
 };

@@ -1,43 +1,50 @@
 {
-    "name": "grunt-multicon",
-    "description": "A mystical CSS icon solution",
-    "version": "0.1.0",
-    "homepage": "https://github.com/Two-Screen/grunt-multicon",
-    "author": "Two Screen",
+    "name":         "grunt-multicon",
+    "description":  "A mystical CSS icon solution",
+    "version":      "0.2.0",
+    "homepage":     "https://github.com/Two-Screen/grunt-multicon",
+    "author":       "Two Screen",
     "contributors": [
-        "Stephan Kochen <stephan@two-screen.tv>",
+        "Stephan Kochen  <stephan@two-screen.tv>",
         "Mattijs Hoitink <mattijs@monkeyandmachine.com>"
     ],
     "repository": {
         "type": "git",
-        "url": "https://github.com/Two-Screen/grunt-multicon.git"
+        "url":  "https://github.com/Two-Screen/grunt-multicon.git"
     },
     "bugs": {
-        "url": "https://github.com/Two-Screen/grunt-multicon/issues"
+        "url":  "https://github.com/Two-Screen/grunt-multicon/issues"
     },
     "licenses": [
         {
             "type": "MIT",
-            "url": "https://github.com/Two-Screen/multicon/blob/master/LICENSE-MIT"
+            "url":  "https://github.com/Two-Screen/multicon/blob/master/LICENSE"
         }
     ],
     "main": "tasks/multicon",
     "engines": {
-        "node": "*"
+        "node": "~0.8"
     },
     "scripts": {
         "test": "grunt test"
     },
     "dependencies": {
-        "grunt": "~0.4.0",
+        "grunt":                  "~0.4.0",
+        "noface":                 "~0.1",
+        "slugg":                  "~0.0.1"
+    },
+    "devDependencies": {
         "grunt-contrib-nodeunit": "~0.1.0",
-        "grunt-contrib-watch": "~0.2.0",
-        "grunt-contrib-jshint": "~0.1.0",
-        "noface": "0.1"
+        "grunt-contrib-watch":    "~0.2.0",
+        "grunt-contrib-jshint":   "~0.1.0",
+        "grunt-contrib-clean":    "~0.4.0"
     },
     "keywords": [
         "gruntplugin",
         "icon",
+        "svg",
+        "css",
+        "png",
         "phantomjs"
     ]
 }
