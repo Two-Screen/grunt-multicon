@@ -67,13 +67,15 @@ module.exports = function(grunt) {
             scales:   [ 1 ]
         });
 
-        // Get the source and destination files from the files property
-        // There should only be one definition, so we take the first one
+        // Get the source and destination files from the files property.
+        // There should only be one definition, so we take the first one.
         config.paths = this.files.shift();
 
         // The base path will be stripped off source file paths before writing
         // the icons to the destination. Make sure it ends with a '/'.
-        if (!/\/$/.test(config.basepath)) config.basepath += '/';
+        if (!/\/$/.test(config.basepath)) {
+            config.basepath += '/';
+        }
 
         // Wrap a function and add the config as the first parameter when
         // calling the wrapped function
@@ -83,7 +85,7 @@ module.exports = function(grunt) {
             };
         }
 
-        // Start doing things, it alls down the drain from here
+        // Start doing things, it alls going down from here
         async.waterfall([
             function(next) {
                 configure(collectSVGFiles)(null, next);
@@ -271,7 +273,7 @@ module.exports = function(grunt) {
                 ph.once("message", function(result) {
                     if (result === "fail") {
                         grunt.verbose.error();
-                        callback(Error("Could not render " + image.relPath));
+                        callback(new Error("Could not render " + image.relPath));
                     }
                     else {
                         grunt.verbose.ok();
@@ -307,10 +309,11 @@ module.exports = function(grunt) {
         var sizerule;
         if (image.scale !== 1) {
             sizerule = "background-size: ";
-            if (image.width === image.height)
+            if (image.width === image.height) {
                 sizerule += image.width + "px; ";
-            else
+            } else {
                 sizerule += image.width + "px " + image.height + "px; ";
+            }
         }
         else {
             sizerule = "";
@@ -366,10 +369,10 @@ module.exports = function(grunt) {
      * @return {Boolean}
      */
     function isSvgFile(filePath) {
-        if (!filePath) return false;
+        if (!filePath) {
+            return false;
+        }
         filePath = path.resolve(filePath);
-        return fs.existsSync(filePath)
-            && fs.lstatSync(filePath)
-            && /\.svg$/.test(filePath);
+        return fs.existsSync(filePath) && fs.lstatSync(filePath) && /\.svg$/.test(filePath);
     }
 };
