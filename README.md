@@ -60,16 +60,15 @@ This is an example task defintion from a `Gruntfile.js` file:
     - **png**: Name for the PNG data URI stylesheet.
     - **fallback**: Name for the fallback stylesheet.
   - **folder**: Name for the PNG icon folder.
-  - **preview**: Name for the preview HTML file, or FALSE to disable.
   - **basepath**: Base path for rendered PNG icons. This will be stripped off the path of the source icons.
-  - **scales**: The scaled version for each icon that need to be created.
+  - **scales**: The scaled version for each icon that need to be generated.
 
 ## License
 
 `grunt-multicon` is licensed under the MIT license. See the LICENSE file for more details.
 
-    Copyright (c) 2012 Scott Jehl, [Filament Group, Inc.](http://filamentgroup.com)
-    Copyright (c) 2013, Stephan Kochen, Mattijs Hoitink, [Two Screen](http://two-screen.tv)
+    Copyright (c) 2013, Stéphan Kochen, Mattijs Hoitink, Two Screen.
+    Copyright (c) 2012 Scott Jehl, Filament Group, Inc.
 
 
 ### Example icons attribution
