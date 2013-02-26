@@ -16,8 +16,12 @@ module.exports = function(grunt) {
         multicon: {
             example: {
                 options: {
+                    css: {
+                        baseurl: ''
+                    },
                     folder:   'icons',
-                    basepath: 'example/source'
+                    basepath: 'example/source',
+                    scales: [ 1, 2 ]
                 },
                 src: [ 'example/source/*.svg' ],
                 dest: 'example/output'

@@ -1,0 +1,120 @@
+<!doctype html>
+<html>
+    <head>
+        <title>grunt-multicon preview</title>
+        <script type="text/javascript">
+            /*
+             * Example CSS loader script
+             */
+
+            // Check for SVG support.
+            var svg = (typeof(document.createElementNS === "function") &&
+                       typeof(document.createElementNS('http://www.w3.org/2000/svg', 'svg').createSVGRect) === 'function');
+
+            // If there is SVG support, laod svg based stylesheet
+            if (svg) { loadStylesheets('data.svg'); }
+            else {
+                // Use an Image to determine support for data URIs
+                var img = new Image();
+                img.onload = function() {
+                    // Load png data URI stylesheet if image has a width and height
+                   if (img.width > 0 && img.height > 0) {
+                       loadStylesheets('data.png');
+                   }
+                   else {
+                       loadStylesheets('fallback');
+                   }
+                }
+                img.onerror = function() {
+                    // No data URI support, use fallback stylesheet
+                    loadStylesheets('fallback');
+                };
+                img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+            }
+
+            // Load a stylesheet of a type. Type can be one of the generated
+            // stylesheets: data.svg, data.png or fallback
+            function loadStylesheets(type) {
+                var head = document.getElementsByTagName('head')[0];
+
+                head.appendChild(createLinkElement('output/icons.' + type + '.css'));
+                head.appendChild(createLinkElement(
+                    'output/icons.' + type + '.x2.css',
+                    'screen and (min-device-width: 768px) and (max-device-width: 1024px), screen and (min-width: 768px)'
+                ));
+            }
+
+            // Simple function to create an HTML link element
+            function createLinkElement(url, media) {
+                var link   = document.createElement('link');
+                link.rel   = 'stylesheet';
+                link.type  = 'text/css';
+                link.media = media || 'screen';
+                link.href  = url;
+
+                // When a stylesheet fails to load, display an error message.
+                // This probably means the icons and stylesheets were not
+                // generated using the grunt command
+                link.onerror = function() {
+                    document.getElementsByTagName('body')[0].className = 'error';
+                };
+
+                return link;
+            }
+        </script>
+        <style type="text/css">
+            body { padding: 2em 4em; }
+
+            .icon {
+                margin: 1em;
+                display: inline-block;
+                width:  48px;
+                height: 48px;
+                border: 1px solid #DEDEDE;
+            }
+            .message { display: none; }
+            .error .icon { display: none; }
+            .error .message {
+                display: block;
+                margin: 1em;
+                padding: 1em;
+                background-color: red;
+                color: white;
+                text-align: center;
+            }
+
+            @media screen and (min-device-width: 768px) and (max-device-width: 1024px), screen and (min-width: 768px) {
+                .icon {
+                    width:  96px;
+                    height: 96px;
+                }
+            }
+        </style>
+    </head>
+    <body>
+
+        <div class="message">
+            <h1>An error ocurred :(</h1>
+            <p>One or more example stylesheets could not be loaded.</p>
+            <p>
+                Make sure you run the <code>grunt</code> command from the
+                projects root to generate the example icons and stylesheets.
+            </p>
+        </div>
+
+        <div class="icon icon-face-angel"></div>
+        <div class="icon icon-face-crying"></div>
+        <div class="icon icon-face-devilish"></div>
+        <div class="icon icon-face-glasses"></div>
+        <div class="icon icon-face-grin"></div>
+        <div class="icon icon-face-kiss"></div>
+        <div class="icon icon-face-monkey"></div>
+        <div class="icon icon-face-plain"></div>
+        <div class="icon icon-face-sad"></div>
+        <div class="icon icon-face-smile"></div>
+        <div class="icon icon-face-smile"></div>
+        <div class="icon icon-face-surprise"></div>
+        <div class="icon icon-face-wink"></div>
+
+    </body>
+</html>
