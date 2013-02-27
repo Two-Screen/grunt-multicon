@@ -8,13 +8,15 @@ on those icons:
 
   1. A stylesheet with SVG data URIs
   2. A stylesheet with PNG data URIs
-  3. A stylesheet with fallback URLs to PNG images
+  3. A stylesheet with URLs to external PNG images
 
 Each stylesheet contains CSS classes for each source image that can be used to
 set the background of an HTML element with the icon.
 
 Depending on the browser(s) you are supporting you can load any of the
-stylesheets to use the CSS classes generated from the source images.
+stylesheets to use the CSS classes generated from the source images. It is
+up to you to implement the stylesheet loading but there is an example in the
+[preview.html](example/preview.html) file in the example directory.
 
 ## Getting started
 
