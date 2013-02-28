@@ -104,15 +104,7 @@ module.exports = function(grunt) {
             renderPNGImages,
             writePNGImages,
             configure(writeCSSFiles)
-        ], function(error, result) {
-            if (error) {
-                grunt.fail.fatal(error);
-            }
-            else {
-                // We are all done
-                grunt.log.writeln('Wrote icons and stylesheets to ' + config.paths.dest.cyan);
-            }
-        });
+        ], done);
     });
 
     /**
@@ -191,6 +183,7 @@ module.exports = function(grunt) {
     function writePNGImages(images, callback) {
         grunt.util._.each(images, function(image) {
             grunt.file.write(image.destPath, image.png.data);
+            grunt.log.writeln("File " + image.destPath + " created.");
         });
 
         callback(null, images);
@@ -236,7 +229,9 @@ module.exports = function(grunt) {
 
         // Write all sheet versions to disk
         _.each(sheets, function(rules, filename) {
-            grunt.file.write(path.join(config.paths.dest, filename), rules.join('\n\n'));
+            var dest = path.join(config.paths.dest, filename);
+            grunt.file.write(dest, rules.join('\n'));
+            grunt.log.writeln("File " + dest + " created.");
         });
 
         // All done
@@ -323,14 +318,7 @@ module.exports = function(grunt) {
                 });
             }, function(err) {
                 ph.close();
-
-                if (err) {
-                    callback(err);
-                }
-                else {
-                    grunt.log.writeln("Rendered " + images.length + " SVGs.");
-                    callback(null, images);
-                }
+                callback(err, images);
             });
         });
 
