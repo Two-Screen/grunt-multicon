@@ -7,7 +7,6 @@
  * @author Stéphan Kochen <stephan@kochen.nl>
  * @see https://github.com/Two-Screen/grunt-multicon#readme
  */
-"use strict";
 
 var fs     = require('fs');
 var path   = require('path');
@@ -16,6 +15,8 @@ var slug   = require('slugg');
 
 // Export for Grunt.
 module.exports = function(grunt) {
+    "use strict";
+
     var _ = grunt.util._;
     var async = grunt.util.async;
 
@@ -28,7 +29,6 @@ module.exports = function(grunt) {
      *          options: {
      *              css: {
      *                  prefix:   "icon-",
-     *                  baseurl:  "/"
      *              },
      *              sheets: {
      *                  svg:      "icons.data.svg.css",
@@ -51,8 +51,7 @@ module.exports = function(grunt) {
         // Get the config
         var config = this.options({
             css: {
-                prefix: 'icon-',
-                baseurl: '/'
+                prefix: 'icon-'
             },
             sheets: {
                 svg:      "icons.data.svg.css",
@@ -66,8 +65,7 @@ module.exports = function(grunt) {
 
         // Update nested objects
         config.css = _.defaults(config.css || {}, {
-            prefix: 'icon-',
-            baseurl: '/'
+            prefix: 'icon-'
         });
         config.sheets = _.defaults(config.sheets || {}, {
             svg:      "icons.data.svg.css",
@@ -82,11 +80,8 @@ module.exports = function(grunt) {
 
         // The base path will be stripped off source file paths before writing
         // the icons to the destination. Make sure it ends with a '/'.
-        //if (!/\/$/.test(config.basepath)) {
-            //config.basepath += '/';
-        //}
-        // Make sure basepath is resolved to an absolute path
-        config.basepath = path.resolve(config.basepath);
+        if (!/\/$/.test(config.basepath))
+            config.basepath += '/';
 
         // Wrap a function and add the config as the first parameter when
         // calling the wrapped function
@@ -127,42 +122,28 @@ module.exports = function(grunt) {
 
         // Process the SVG files and construct required configuration per
         // image version
-        files.forEach(function(source) {
-            // Resolve full path for the source image
-            var fullSource = path.resolve(source);
-
-            // Strip base path
-            var relSource = fullSource.replace(new RegExp('^' + config.basepath + '/'), '');
+        files.forEach(function(src) {
+            var basename = src.replace(new RegExp('^' + config.basepath), '');
 
             // Determine the icon class name
-            var classname = path.basename(fullSource);
-            var chop = classname.length - path.extname(fullSource).length;
-            classname = config.css.prefix + classname.substring(0, chop);
+            var classname = path.basename(src, '.svg').replace('/', '-');
 
             // Push each scaled version onto the stack to process
             config.scales.forEach(function(scale) {
                 // Determine the icons filename and destination output path
-                var scaledName = scaledFilename(relSource, scale).replace(/svg$/, 'png');
+                var scaledName = scaledFilename(basename, scale).replace(/\.svg$/, '.png');
                 var relPath    = path.join(config.folder, scaledName);
                 var destPath   = path.join(config.paths.dest, relPath);
-
-                // Determine the image's URL
-                var url = relPath.replace('\\', '/');
-                var baseurl = config.css.baseurl;
-                if (baseurl && typeof(baseurl) === 'string' && baseurl.length > 0) {
-                    url = baseurl + '/' + url;
-                }
 
                 // Build the data Object for processing the image version
                 images.push({
                     scale:     scale,
                     filename:  scaledName,
                     classname: classname,
-                    destPath:  destPath,
                     relPath:   relPath,
-                    url:       url,
+                    destPath:  destPath,
                     svg:      {
-                        data: grunt.file.read(source)
+                        data: grunt.file.read(src)
                     }
                 });
             });
@@ -374,13 +355,8 @@ module.exports = function(grunt) {
      * @return {String}         The generated CSS rule.
      */
     function fallbackCSSRule(image) {
-
-        var tmpl = '.<%= class => {' +
-                   'background-image: url("<%= url =>");' +
-                   ' background-repeat: no-repeat;';
-
         return '.' + image.classname + ' { ' +
-                'background-image: url("' + image.url + '"); ' +
+                'background-image: url("' + image.relPath + '"); ' +
                 'background-repeat: no-repeat; ' +
             '}';
     }
