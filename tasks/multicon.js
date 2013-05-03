@@ -126,7 +126,7 @@ module.exports = function(grunt) {
             var basename = src.replace(new RegExp('^' + config.basepath), '');
 
             // Determine the icon class name
-            var classname = path.basename(src, '.svg').replace('/', '-');
+            var classname = config.css.prefix + path.basename(src, '.svg').replace('/', '-');
 
             // Push each scaled version onto the stack to process
             config.scales.forEach(function(scale) {
